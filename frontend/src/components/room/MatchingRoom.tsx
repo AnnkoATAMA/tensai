@@ -340,23 +340,46 @@ const MatchingRoom = () => {
                     {winner && <Typography variant="h6" sx={{ mt: 2 }}>勝者: {winner}</Typography>}
 
 
-                    <Dialog open={openPlayer !== null} onClose={handleCloseDiscard}>
-                        <DialogTitle>{openPlayer ? `プレイヤー ${openPlayer} の捨て牌` : ""}</DialogTitle>
+                    <Dialog
+                        open={openPlayer !== null}
+                        onClose={handleCloseDiscard}
+                        sx={{
+                            "& .MuiPaper-root": {
+                                backgroundColor: "#004d26",
+                                border: "2px solid #00e676",
+                            },
+                        }}
+                    >
+                        <DialogTitle sx={{ backgroundColor: "#00e676", color: "#004d26", fontWeight: "bold" }}>
+                            {openPlayer ? `プレイヤー ${openPlayer} の捨て牌` : ""}
+                        </DialogTitle>
                         <DialogContent>
-                            <Typography>
+                            <Typography sx={{ color: "#ffffff" }}>
                                 {openPlayer && binaryDiscarded[openPlayer] ? binaryDiscarded[openPlayer].join(", ") : "捨て牌なし"}
                             </Typography>
                         </DialogContent>
                     </Dialog>
 
-                    <Dialog open={binaryAgariHand.length > 0} onClose={handleCloseAgari}>
-                        <DialogTitle>{ronPlayer ? `プレイヤー ${ronPlayer} の上がり手牌` : ""}</DialogTitle>
+                    <Dialog
+                        open={binaryAgariHand.length > 0}
+                        onClose={handleCloseAgari}
+                        sx={{
+                            "& .MuiPaper-root": {
+                                backgroundColor: "#004d26",
+                                border: "2px solid #00e676",
+                            },
+                        }}
+                    >
+                        <DialogTitle sx={{ backgroundColor: "#00e676", color: "#004d26", fontWeight: "bold" }}>
+                            {ronPlayer ? `プレイヤー ${ronPlayer} の上がり手牌` : ""}
+                        </DialogTitle>
                         <DialogContent>
-                            <Typography>
+                            <Typography sx={{ color: "#ffffff" }}>
                                 {binaryAgariHand.length > 0 ? binaryAgariHand.join(", ") : "手牌なし"}
                             </Typography>
                         </DialogContent>
                     </Dialog>
+
 
 
                 </Card>
