@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { Container, List, ListItem, ListItemText, Typography, Button, Card, Grid, Dialog, DialogTitle, DialogContent } from "@mui/material";
 import { fetchRoomPlayers, leaveRoom, deleteRoom } from "../../utils/roomApi";
+import { PaiList } from "./PaiList.ts"
 
 interface PlayerType {
     user_id: number;
@@ -36,7 +37,6 @@ const MatchingRoom = () => {
             console.log("WebSocket Message:", data);
 
             if (data.action === "game_started") {
-                console.log("ゲーム開始！リアルタイムで手牌を取得する");
                 setGameStarted(true);
                 sendGetGameState(ws);
             }
@@ -144,6 +144,30 @@ const MatchingRoom = () => {
         }
     };
 
+    const convertToBinaryHand = (hand: string[]) => {
+        return hand.map(tile => {
+            const found = PaiList.find(pai => pai.name === tile);
+            return found ? found.binary : tile;
+        });
+    };
+    const binaryHand = convertToBinaryHand(hand);
+
+    const convertTobinaryDiscarded = (discardedTiles: { [key: string]: string[] }) => {
+        const binaryDiscarded: { [key: string]: string[] } = {};
+
+        Object.entries(discardedTiles).forEach(([playerId, tiles]) => {
+            binaryDiscarded[playerId] = tiles.map(pai => {
+                const found = PaiList.find(pais => pais.name === pai);
+                return found ? found.binary : pai;
+            });
+        });
+
+        return binaryDiscarded;
+    };
+
+    const binaryDiscarded = convertTobinaryDiscarded(discardedTiles);
+
+
     return (
         <Container sx={{ mt: 4 }}>
             <Typography variant="h5" gutterBottom>
@@ -176,11 +200,17 @@ const MatchingRoom = () => {
                 <Card sx={{ padding: 2, maxWidth: 600, margin: "auto", mt: 4 }}>
                     <Typography variant="h5">バイナリ麻雀</Typography>
                     <Grid container spacing={1}>
-                        {hand.map((tile, index) => (
+                        {binaryHand.map((binary, index) => (
                             <Grid item key={index}>
-                                <Button variant="contained" color="secondary" onClick={() => sendAction("discard", { hai_idx: index })}>
-                                    {tile}
+                                <Button
+                                    variant="contained"
+                                    color="secondary"
+                                    sx={{ fontSize: "10px" }}
+                                    onClick={() => sendAction("discard", { hai_idx: index })}
+                                >
+                                    {binary}
                                 </Button>
+
                             </Grid>
                         ))}
                     </Grid>
@@ -198,7 +228,7 @@ const MatchingRoom = () => {
                     <Typography variant="h6" sx={{ mt: 2 }}>
                         捨て牌Box:
                     </Typography>
-                    {Object.entries(discardedTiles).map(([playerId]) => (
+                    {Object.entries(binaryDiscarded).map(([playerId]) => (
                         <Button
                             key={playerId}
                             variant="contained"
@@ -214,7 +244,7 @@ const MatchingRoom = () => {
                         <DialogTitle>{openPlayer ? `プレイヤー ${openPlayer} の捨て牌` : ""}</DialogTitle>
                         <DialogContent>
                             <Typography>
-                                {openPlayer && discardedTiles[openPlayer] ? discardedTiles[openPlayer].join(", ") : "捨て牌なし"}
+                                {openPlayer && binaryDiscarded[openPlayer] ? binaryDiscarded[openPlayer].join(", ") : "捨て牌なし"}
                             </Typography>
                         </DialogContent>
                     </Dialog>
