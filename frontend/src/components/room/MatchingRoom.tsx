@@ -225,11 +225,8 @@ const MatchingRoom = () => {
                             </Grid>
                         ))}
                     </Grid>
-                    <Button variant="contained" color="primary" onClick={() => sendAction("draw")} sx={{ mt: 2 }}>
-                        ツモる
-                    </Button>
                     <Button variant="contained" color="success" onClick={() => sendAction("claim_ron")} sx={{ mt: 2 }}>
-                        ロン宣言
+                        上がり宣言
                     </Button>
                     <Button variant="contained" color="error" onClick={() => sendAction("claim_doubt", { target_id: roomId })} sx={{ mt: 2 }}>
                         ダウト宣言
