@@ -144,12 +144,16 @@ async def websocket_endpoint(
                 success, result = await game.claim_doubt(player_id, target_id)
                 
                 if success:
+                    
+                    target_hand = [str(hai) for hai in game.players[target_id].tehai]
+                    
                     await manager.broadcast({
                         "action": "doubt_result",
                         "doubter_id": player_id,
                         "target_id": target_id,
                         "winner": result["winner"],
-                        "reason": result["reason"]
+                        "reason": result["reason"],
+                        "hand": target_hand
                     }, room_id)
                 else:
                     await websocket.send_json({"error": result})
