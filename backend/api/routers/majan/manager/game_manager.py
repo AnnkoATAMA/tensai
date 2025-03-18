@@ -143,7 +143,7 @@ class BinaryMahjongGame:
 
         return True, result
     
-    async def claim_tumo(self, player_id: str):
+    async def claim_tumo(self, player_id: str) -> Tuple[bool, Any]:
         # ゲームが開始されていないか、終了している場合はfalseを返す
         if not self.game_started or self.game_finished:
             return False, "ゲームは開始されていないか終了しています"
