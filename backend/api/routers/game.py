@@ -18,6 +18,7 @@ async def websocket_endpoint(
     ):
     
     user_id = current_user["id"]
+    player_name = current_user["name"]
     
     result = await db.execute(
         select(player_model.Player)
@@ -27,14 +28,14 @@ async def websocket_endpoint(
     player = result.scalars().first()
     
     player_id = player.id
-    player_name = current_user["name"]
     
     await manager.connect(websocket, room_id, player_id)
     
     game = manager.get_game(room_id)
     
-    # player_idがplayersになく、gameが開始していた場合
+    # player_idがplayersにない
     if game and player_id not in game.players:
+        # ゲームが開始されている場合はエラーを返す
         if game.game_started:
             await manager.send_personal(
                 {"error": "ゲームはすでに開始されています"},
@@ -52,6 +53,8 @@ async def websocket_endpoint(
     try:
         while True:
             data = await websocket.receive_json()
+            
+            #get_gameでroom_idに対応するBinaryMahjongGameを取得
             game = manager.get_game(room_id)
             
             if not game:
@@ -63,24 +66,28 @@ async def websocket_endpoint(
             
             # actionが"start_game"の場合, start_gameメソッドを実行
             if action == "start_game":
+                # trueが返ってきた場合
                 if game.start_game():
                     await manager.broadcast({"action": "game_started"}, room_id)
                 else:
                     await websocket.send_json({"error": "ゲームを開始できません"})
                     
+          
             # actionが"discard"の場合, discard_haiメソッドを実行
             elif action == "discard":
                 hai_idx = data.get("hai_idx")
-                success, message = game.discard_hai(player_id, hai_idx)
+                success, result = await game.discard_hai(player_id, hai_idx)
                 
                 if success:
                     await manager.broadcast({
                         "action": "hai_discarded",
                         "player_id": player_id,
-                        "message": message
+                        "message": result.get("message", ""),
+                        "ron_available": result.get("ron_available", False),
+                        "ron_timeout": result.get("ron_timeout", 0)
                     }, room_id)
                 else:
-                    await websocket.send_json({"error": message})
+                    await websocket.send_json({"error": result})
                     
             # actionが"claim_ron"の場合, claim_ronメソッドを実行
             elif action == "claim_ron":
@@ -90,8 +97,16 @@ async def websocket_endpoint(
                     await manager.broadcast({
                         "action": "ron_claimed",
                         "player_id": player_id,
-                        "doubt_available": result.get("doubt_available", False)
+                        "doubt_available": result.get("doubt_available", False),
+                        "doubt_timeout": 30
                     }, room_id)
+                    # タイムアウト結果がある場合、それをブロードキャスト
+                    if "timeout_result" in result and result.get("game_finished", False):
+                        await manager.broadcast({
+                            "action": "doubt_timeout",
+                            "winner": result["timeout_result"]["winner"],
+                            "reason": result["timeout_result"]["reason"]
+                        }, room_id)
                 else:
                     await websocket.send_json({"error": result})
                     

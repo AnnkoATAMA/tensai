@@ -1,6 +1,7 @@
 from .. import taku, janshi
 import random
 from typing import Any, Tuple
+from asyncio import sleep
 
 # ゲーム状態を管理するクラス
 class BinaryMahjongGame:
@@ -16,6 +17,7 @@ class BinaryMahjongGame:
         self.last_discarded_hai = None
         self.last_action_player = None
         self.doubt_available = False
+        self.ron_available = False
         self.ron_player = None
         
     # プレイヤーを追加
@@ -60,7 +62,7 @@ class BinaryMahjongGame:
         return None
         
     # 牌を捨てる
-    def discard_hai(self, player_id: str, hai_idx: int) -> Tuple[bool, str]:
+    async def discard_hai(self, player_id: str, hai_idx: int) -> Tuple[bool, str]:
         # ゲームが開始されていないか、終了している場合はfalseを返す
         if not self.game_started or self.game_finished:
             return False, "ゲームは、開始されていないか終了しています"
@@ -83,38 +85,57 @@ class BinaryMahjongGame:
         self.last_discarded_hai = discarded_hai
         self.last_action_player = player_id
         
-        # 次の手番へ
-        self.current_turn_idx = (self.current_turn_idx + 1) % len(self.players)
+        ron_time_seconds = 10
         
-        # 次のプレイヤーにツモさせる
-        next_player_id = self.get_current_player_id()
-        if next_player_id:
-            next_player = self.players[next_player_id]
-            if len(self.taku.yama) > 0:
-                next_player.tsumo(self.taku.yama)
-                next_player.riipai()
-            else:
-                # 山がなくなったら流局
-                self.game_finished = True
-                return True, "流局"
-                
-        return True, "牌を捨てました"
+        self.ron_available = True
+        
+        result = {
+            "message": "牌を捨てました",
+            "ron_available": True,
+            "ron_timeout": ron_time_seconds
+        }
+        
+        await sleep(ron_time_seconds)
+        
+       # 猶予時間後、誰もロンしていなければ次の手番に進む
+        if not self.game_finished:
+            # ロン宣言できなくする
+            self.ron_available = False
+            
+            # 次の手番へ
+            self.current_turn_idx = (self.current_turn_idx + 1) % len(self.players)
+            
+            # 次のプレイヤーにツモさせる
+            next_player_id = self.get_current_player_id()
+            if next_player_id:
+                next_player = self.players[next_player_id]
+                if len(self.taku.yama) > 0:
+                    next_player.tsumo(self.taku.yama)
+                    next_player.riipai()
+                else:
+                    # 山がなくなったら流局
+                    self.game_finished = True
+                    result["message"] = "流局"
+                    return True, result
+        
+        return True, result
         
     # ロンの宣言
-    def claim_ron(self, player_id: str) -> Tuple[bool, Any]:
+    async def claim_ron(self, player_id: str) -> Tuple[bool, Any]:
         # ゲームが開始されていないか、終了している場合はfalseを返す
         if not self.game_started or self.game_finished:
             return False, "ゲームは開始されていないか終了しています"
-            
-        # 手番でないプレイヤーがロンを宣言しようとした場合はfalseを返す
-        if self.last_action_player == player_id:
-            return False, "自分の捨てた牌にロンはできません"
+        
+        # ロン宣言が可能な状態でないとfalseを返す
+        if not hasattr(self, 'ron_available') or not self.ron_available:
+            return False, "現在ロン宣言はできません"
         
         # ロン宣言をしたプレイヤーを格納
         player = self.players[player_id]
         
         # バイナリ麻雀では、ロン宣言は自由だがダウト可能
         self.doubt_available = True
+        self.ron_available = False  # ロン宣言されたらもうロンできない
         
         # ロン宣言をしたプレイヤーを記録
         self.ron_player = player_id
@@ -122,13 +143,54 @@ class BinaryMahjongGame:
         # 内部的にロン可能か確認（クライアントには知らせない）
         is_ron_valid = player.can_ron(self.last_discarded_hai)
         
-        return True, {
-            "doubt_available": True,
-            "is_ron_valid": is_ron_valid  # 内部でのみ使用
-        }
+        # ダウト時間（秒）
+        doubt_time_seconds = 30
         
+        # 待機時間をクライアントに通知するために返す
+        doubt_timeout = doubt_time_seconds
+        
+        # 時間制限後の自動判定
+        await sleep(doubt_time_seconds)
+        
+        # まだダウトされてない場合かつ、まだ勝者が決まっていない場合
+        if self.doubt_available and not self.game_finished:
+            # ダウト時間が過ぎた場合の処理
+            self.doubt_available = False
+            self.game_finished = True
+            
+            # ロン宣言が実際に有効だったかでゲーム結果を判定
+            if is_ron_valid:
+                self.winner = player_id
+                result = {
+                    "winner": player_id,
+                    "reason": "ロン成立、ダウト時間切れ"
+                }
+            else:
+                # バイナリ麻雀の場合、ロンが不成立でも時間切れなら不正ロンを見逃したことになるので
+                # ロン宣言者の勝ち（通常の麻雀ルールとは違う特殊ルール）
+                self.winner = player_id
+                result = {
+                    "winner": player_id,
+                    "reason": "ロン不成立だが、ダウト時間切れによりロン宣言者の勝ち"
+                }
+            
+            # この結果を通知できるようにManagerクラスに渡すために追加
+            return True, {
+                "doubt_available": False,
+                "is_ron_valid": is_ron_valid,
+                "timeout_result": result,
+                "game_finished": True
+            }
+        
+        # ここに到達するのは、すでにdoubt_availableがFalseになっているか、
+        # game_finishedがTrueになっている場合（ダウトされた場合）
+        return True, {
+            "doubt_available": self.doubt_available,
+            "is_ron_valid": is_ron_valid
+        }
+            
     # ロン宣言に対してダウトを宣言  
-    def claim_doubt(self, doubter_id: str, target_id: str) -> Tuple[bool, Any]:
+    async def claim_doubt(self, doubter_id: str, target_id: str) -> Tuple[bool, Any]:
         # doubt_availableがFalseの場合はfalseを返す
         if not self.doubt_available:
             return False, "ダウトできません"
