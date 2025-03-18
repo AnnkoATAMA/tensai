@@ -1,0 +1,60 @@
+version: '3.8'
+
+services:
+  mysql:
+    image: mysql:latest
+    volumes:
+      - ./mysql/data:/var/lib/mysql
+      - ./mysql/init:/docker-entrypoint-initdb.d
+      - ./mysql/mysql.cnf:/etc/mysql/conf.d/my.cnf
+    ports:
+      - "3306:3306"
+    env_file:
+      - .env
+    healthcheck:
+      test: [ "CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "root", "-p$$MYSQL_ROOT_PASSWORD" ]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+      start_period: 30s
+
+  fastapi:
+    build:
+      context: ./backend
+      dockerfile: api/Dockerfile
+    ports:
+      - "8000:8000"
+    env_file:
+      - .env
+    volumes:
+      - ./backend/api:/opt
+    depends_on:
+      mysql:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-fs", "http://localhost:8000"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 3s
+
+  front:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    ports:
+      - "5173:5173"
+    volumes:
+      - ./frontend:/app
+      - /app/node_modules
+    environment:
+      - VITE_WS_URL=ws://172.20.10.2:8000
+    healthcheck:
+      test: ["CMD", "curl", "-fs", "http://localhost:5173"]
+      interval: 10s
+      timeout: 5s
+      retries: 20
+      start_period: 3s
+    depends_on:
+      fastapi:
+        condition: service_healthy

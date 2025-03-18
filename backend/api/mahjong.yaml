@@ -1,0 +1,356 @@
+openapi: 3.0.0
+info:
+  title: "mahjong"
+  version: "1.0"
+  description: "オンライン麻雀ゲームAPI"
+tags:
+  - name: Users
+    description: User management
+  - name: Rooms
+    description: Room management
+  - name: Players
+    description: Player management
+  - name: WebSocket
+    description: Real-time communication
+
+paths:
+  /api/user/register:
+    post:
+      tags:
+        - Users
+      summary: "Register"
+      operationId: "register_api_user_register_post"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UserCreate"
+      responses:
+        "200":
+          description: "Successful Response"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/UserCreateResponse"
+        "422":
+          description: "Validation Error"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/HTTPValidationError"
+
+  /api/user/login:
+    post:
+      tags:
+        - Users
+      summary: "Login For Access Token"
+      operationId: "login_for_access_token_api_user_login_post"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/EmailPasswordLogin"
+      responses:
+        "200":
+          description: "Successful Response"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Token"
+        "422":
+          description: "Validation Error"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/HTTPValidationError"
+
+  /room:
+    post:
+      tags:
+        - Rooms
+      summary: "Create a room"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RoomCreate"
+      responses:
+        "201":
+          description: "Room created"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Room"
+
+    get:
+      tags:
+        - Rooms
+      summary: "Get room list"
+      responses:
+        "200":
+          description: "List of rooms"
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Room"
+
+  /room/{room_id}:
+    put:
+      tags:
+        - Rooms
+      summary: "Update room settings"
+      parameters:
+        - name: room_id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RoomUpdate"
+      responses:
+        "200":
+          description: "Room updated"
+
+    delete:
+      tags:
+        - Rooms
+      summary: "Delete a room"
+      parameters:
+        - name: room_id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "204":
+          description: "Room deleted"
+
+  /room/{room_id}/players:
+    get:
+      tags:
+        - Players
+      summary: "Get list of players in a room"
+      parameters:
+        - name: room_id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: "List of players"
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Player"
+
+  /room/{room_id}/player/{player_id}:
+    put:
+      tags:
+        - Players
+      summary: "Update a player's information"
+      parameters:
+        - name: room_id
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: player_id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/PlayerUpdate"
+      responses:
+        "200":
+          description: "Player information updated successfully"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Player"
+
+  /room/{room_id}/ws:
+    get:
+      tags:
+        - WebSocket
+      summary: "Establish WebSocket connection for real-time game updates"
+      parameters:
+        - name: room_id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "101":
+          description: "WebSocket connection established"
+
+components:
+  schemas:
+    UserCreate:
+      type: object
+      properties:
+        name:
+          type: string
+          title: "ユーザ名"
+        email:
+          type: string
+          title: "メールアドレス"
+        password:
+          type: string
+          title: "パスワード"
+      required:
+        - name
+        - email
+        - password
+
+    UserCreateResponse:
+      type: object
+      properties:
+        id:
+          type: integer
+          title: "ID"
+        name:
+          type: string
+          title: "ユーザ名"
+        email:
+          type: string
+          title: "メールアドレス"
+      required:
+        - id
+        - name
+        - email
+
+    EmailPasswordLogin:
+      type: object
+      properties:
+        email:
+          type: string
+          title: "メールアドレス"
+        password:
+          type: string
+          title: "パスワード"
+      required:
+        - email
+        - password
+
+    Token:
+      type: object
+      properties:
+        access_token:
+          type: string
+          title: "Access Token"
+        token_type:
+          type: string
+          title: "Token Type"
+      required:
+        - access_token
+        - token_type
+
+    RoomCreate:
+      type: object
+      properties:
+        max_players:
+          type: integer
+          title: "最大プレイヤー数"
+        game_type:
+          type: string
+          enum: [sanma, yonma]
+          title: "ゲームタイプ"
+      required:
+        - max_players
+        - game_type
+
+    Room:
+      type: object
+      properties:
+        room_id:
+          type: integer
+          title: "部屋ID"
+        max_players:
+          type: integer
+          title: "最大プレイヤー数"
+        game_type:
+          type: string
+          enum: [sanma, yonma]
+          title: "ゲームタイプ"
+      required:
+        - room_id
+        - max_players
+        - game_type
+
+    RoomUpdate:
+      type: object
+      properties:
+        game_type:
+          type: string
+          enum: [sanma, yonma]
+          title: "ゲームタイプ"
+      required:
+        - game_type
+
+    Player:
+      type: object
+      properties:
+        player_id:
+          type: integer
+          title: "プレイヤーID"
+        name:
+          type: string
+          title: "プレイヤー名"
+      required:
+        - player_id
+        - name
+
+    PlayerUpdate:
+      type: object
+      properties:
+        name:
+          type: string
+          title: "Player name"
+      required:
+        - name
+
+    HTTPValidationError:
+      type: object
+      properties:
+        detail:
+          type: array
+          items:
+            $ref: "#/components/schemas/ValidationError"
+
+    ValidationError:
+      type: object
+      properties:
+        loc:
+          type: array
+          items:
+            oneOf:
+              - type: string
+              - type: integer
+          title: "Location"
+        msg:
+          type: string
+          title: "Message"
+        type:
+          type: string
+          title: "Error Type"
+      required:
+        - loc
+        - msg
+        - type
