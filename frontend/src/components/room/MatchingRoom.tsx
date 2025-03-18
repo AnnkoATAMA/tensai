@@ -20,7 +20,7 @@ const MatchingRoom = () => {
     const [gameStarted, setGameStarted] = useState(false);
     const [discardedTiles, setDiscardedTiles] = useState<{ [key: string]: string[] }>({});
     const [openPlayer, setOpenPlayer] = useState<string | null>(null);
-
+    const [ronPlayer, setRonPlayer] = useState<string | null>(null);
     useEffect(() => {
         if (!roomId) return;
 
@@ -52,6 +52,11 @@ const MatchingRoom = () => {
                     console.warn("手牌を持つプレイヤーが見つかりませんでした。");
                     return;
                 }
+                if (data.game_state.ron_player) {
+                    setRonPlayer(data.game_state.ron_player);
+                } else {
+                    console.log()
+                }
 
                 console.log("現在のプレイヤーID:", currentPlayerId);
                 console.log("取得した手牌:", data.game_state.players[currentPlayerId]?.hand);
@@ -73,6 +78,7 @@ const MatchingRoom = () => {
                     [last_action_player]: [...(prev[last_action_player] || []), last_discarded_hai],
                 }));
             }
+
 
         };
 
@@ -228,9 +234,21 @@ const MatchingRoom = () => {
                     <Button variant="contained" color="success" onClick={() => sendAction("claim_ron")} sx={{ mt: 2 }}>
                         上がり宣言
                     </Button>
-                    <Button variant="contained" color="error" onClick={() => sendAction("claim_doubt", { target_id: roomId })} sx={{ mt: 2 }}>
+                    <Button
+                        variant="contained"
+                        color="error"
+                        onClick={() => {
+                            if (!ronPlayer) {
+                                console.warn("ダウト対象がいないため送信できません");
+                                return;
+                            }
+                            sendAction("claim_doubt", { target_id: ronPlayer });
+                        }}
+                        sx={{ mt: 2 }}
+                    >
                         ダウト宣言
                     </Button>
+
 
                     {winner && <Typography variant="h6" sx={{ mt: 2 }}>勝者: {winner}</Typography>}
                     <Typography variant="h6" sx={{ mt: 2 }}>

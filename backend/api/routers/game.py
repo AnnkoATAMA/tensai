@@ -117,7 +117,7 @@ async def websocket_endpoint(
             # actionが"claim_doubt"の場合, claim_doubtメソッドを実行
             elif action == "claim_doubt":
                 target_id = data.get("target_id")
-                success, result = game.claim_doubt(player_id, target_id)
+                success, result = await game.claim_doubt(player_id, target_id)
                 
                 if success:
                     await manager.broadcast({
