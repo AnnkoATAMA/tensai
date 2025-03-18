@@ -20,9 +20,14 @@ class BinaryMahjongGame:
         self.doubt_available = False
         self.ron_available = True
         self.ron_player = None
+        self.tumo = True
+        self.tumo_player = None
         
         self.ron_timer = None
         self.doubt_timer = None
+        self.tumo_timer = None
+        
+        self.public_hands = set()
 
     # プレイヤーを追加
     def add_player(self, player_id: str, name: str) -> bool:
@@ -137,6 +142,93 @@ class BinaryMahjongGame:
         }
 
         return True, result
+    
+    async def claim_tumo(self, player_id: str):
+        # ゲームが開始されていないか、終了している場合はfalseを返す
+        if not self.game_started or self.game_finished:
+            return False, "ゲームは開始されていないか終了しています"
+            
+        # 手番のプレイヤーかどうかチェック
+        player_position = self.player_seats.get(player_id)
+        if player_position != self.current_turn_idx:
+            return False, "あなたの手番ではありません"
+        
+        # ツモを宣言したプレイヤーを格納
+        player = self.players[player_id]
+        
+        # ダウト可能
+        self.doubt_available = True
+        # ツモ宣言されたらツモできない
+        self.tumo = False
+        
+        # すでに実行中のtumo_timerがあればキャンセル
+        if hasattr(self, 'tumo_timer') and self.tumo_timer:
+            self.tumo_timer.cancel()
+            self.tumo_timer = None
+            
+        # ツモプレイヤ―を格納
+        self.tumo_player = player_id
+        
+        # ツモ宣言をしたプレイヤーを公開手牌に追加
+        self.public_hands.add(player_id)
+        
+        # 内部的にツモあがり可能か確認（クライアントには知らせない）
+        is_ron_valid = player.can_tumo()
+        
+        # ダウト時間（秒）
+        doubt_time_seconds = 30
+
+        # すでに実行中のタイマーがあればキャンセル
+        if hasattr(self, 'doubt_timer') and self.doubt_timer:
+            self.doubt_timer.cancel()
+
+        # 結果を保持する変数
+        result = {
+            "message": "ツモあがりが宣言されました",
+            "doubt_available": True,
+            "is_ron_valid": is_ron_valid,
+            "doubt_timeout": doubt_time_seconds
+        }
+
+        # 非同期で実行するタイマー関数を定義
+        async def doubt_timer_callback():
+            try:
+                await asyncio.sleep(doubt_time_seconds)
+
+                # まだダウトされてない場合かつ、まだ勝者が決まっていない場合
+                if self.doubt_available and not self.game_finished:
+                    # ダウト時間が過ぎた場合の処理
+                    self.doubt_available = False
+                    self.game_finished = True
+
+                    # ツモあがり宣言が実際に有効だったかでゲーム結果を判定
+                    if is_ron_valid:
+                        self.winner = player_id
+                        timeout_result = {
+                            "winner": player_id,
+                            "reason": "ツモあがり成立、ダウト時間切れ"
+                        }
+                    else:
+                        # バイナリ麻雀の場合、あがりが不成立でも時間切れなら不正ツモを見逃したことになるので
+                        # ツモ宣言者の勝ち（通常の麻雀ルールとは違う特殊ルール）
+                        self.winner = player_id
+                        timeout_result = {
+                            "winner": player_id,
+                            "reason": "ツモあがり不成立だが、ダウト時間切れによりツモ宣言者の勝ち"
+                        }
+
+                    # イベントを発火して、タイムアウト結果をブロードキャストする
+                    if hasattr(self, 'on_doubt_timeout'):
+                        await self.on_doubt_timeout(timeout_result)
+            except asyncio.CancelledError:
+                # タイマーがキャンセルされた場合（ダウトが宣言された場合など）
+                pass
+
+        # タイマーをバックグラウンドタスクとして開始
+        self.doubt_timer = asyncio.create_task(doubt_timer_callback())
+
+        # 即座に結果を返す（待たない）
+        return True, result
 
     # ロンの宣言
     async def claim_ron(self, player_id: str) -> Tuple[bool, Any]:
@@ -162,6 +254,9 @@ class BinaryMahjongGame:
 
         # ロン宣言をしたプレイヤーを記録
         self.ron_player = player_id
+        
+        # ロン宣言をしたプレイヤーを公開手牌に追加
+        self.public_hands.add(player_id)
 
         # 内部的にロン可能か確認（クライアントには知らせない）
         is_ron_valid = player.can_ron(self.last_discarded_hai)
@@ -220,50 +315,56 @@ class BinaryMahjongGame:
         # 即座に結果を返す（待たない）
         return True, result
 
-    # ロン宣言に対してダウトを宣言
     async def claim_doubt(self, doubter_id: str, target_id: str) -> Tuple[bool, Any]:
+        
         # doubt_availableがFalseの場合はfalseを返す
         if not self.doubt_available:
             return False, "ダウトできません"
-
+            
         # 自分自身がdoubterの場合はfalseを返す
         if doubter_id == target_id:
             return False, "自分自身にダウトできません"
-
-        # ロン宣言をしてない人にダウトをしようとしたらfalseを返す
-        if target_id != self.ron_player:
-            return False, "ロン宣言をしていないプレイヤーにダウトできません"
-
+            
+        # ロンまたはツモ宣言をしていない人にダウトをしようとしたらfalseを返す
+        if target_id != self.ron_player and target_id != self.tumo_player:
+            return False, "あがり宣言をしていないプレイヤーにダウトできません"
+        
         # すでに実行中のタイマーがあればキャンセル
         if self.doubt_timer:
             self.doubt_timer.cancel()
             self.doubt_timer = None
-
+        
         # ダウト不可にする
         self.doubt_available = False
-
+            
         target_player = self.players[target_id]
-
-        # ロンが実際に可能かどうか確認
-        is_ron_valid = target_player.can_ron(self.last_discarded_hai)
-
+        
+        # ロンかツモかで判定方法を切り替え
+        if target_id == self.ron_player:
+            is_valid = target_player.can_ron(self.last_discarded_hai)
+            claim_type = "ロン"
+        else:  # target_id == self.tumo_player
+            is_valid = target_player.can_tumo()
+            claim_type = "ツモ"
+        
         self.game_finished = True
-
-        if is_ron_valid:
-            # ロン成立ならダウト失敗、ロン宣言者の勝ち
+        
+        if is_valid:
+            # あがり成立ならダウト失敗、あがり宣言者の勝ち
             self.winner = target_id
             return True, {
                 "winner": target_id,
-                "reason": "ロン成立、ダウト失敗"
+                "reason": f"{claim_type}成立、ダウト失敗"
             }
         else:
-            # ロン不成立ならダウト成功、ダウト宣言者の勝ち
+            # あがり不成立ならダウト成功、ダウト宣言者の勝ち
             self.winner = doubter_id
             return True, {
                 "winner": doubter_id,
-                "reason": "ロン不成立、ダウト成功"
+                "reason": f"{claim_type}不成立、ダウト成功"
             }
-    
+        
+        
     def get_game_state(self, viewer_id: str = None) -> dict:
         """ゲーム状態を取得"""
         state = {
@@ -276,7 +377,8 @@ class BinaryMahjongGame:
             "dora_indicator": self.taku.dora_hyouji[0].str if self.taku.dora_hyouji else None,
             "players": {},
             "doubt_available": self.doubt_available,
-            "ron_player": self.ron_player
+            "ron_player": self.ron_player,
+            "tumo_player": self.tumo_player
         }
         
         # もしwinnerがいれば、勝者を記録
@@ -298,6 +400,9 @@ class BinaryMahjongGame:
             if is_viewer:
                 player_state["hand"] = [hai.str for hai in player.tehai] 
                 
+                if player_id in self.public_hands:
+                    player_state["hand_public"] = True
+                    
             state["players"][player_id] = player_state
             
         # 最後に捨てられた牌の情報
