@@ -131,6 +131,7 @@ const MatchingRoom = () => {
     };
 
     const handleOpenDiscard = (playerId: string) => {
+        console.log(discarded)
         setOpenPlayer(playerId);
     };
 
@@ -197,20 +198,30 @@ const MatchingRoom = () => {
             </Button>
 
             {gameStarted && (
-                <Card sx={{ padding: 2, maxWidth: 600, margin: "auto", mt: 4 }}>
+                <Card sx={{ padding: 2, maxWidth: 1200, margin: "auto", mt: 4, background: "radial-gradient(#00633A, #014026)", border:"8px solid", borderImage:"radial-gradient(#83420c, #4e300a)49%"}}>
                     <Typography variant="h5">バイナリ麻雀</Typography>
                     <Grid container spacing={1}>
                         {binaryHand.map((binary, index) => (
                             <Grid item key={index}>
                                 <Button
                                     variant="contained"
-                                    color="secondary"
-                                    sx={{ fontSize: "10px" }}
+                                    sx={{
+                                        fontSize: "10px",
+                                        background: "linear-gradient(180deg, #e38010 0%, #e38010 10%, white 10%, white 90%)", // ✅ 閉じカッコを追加
+                                        width: "97px",
+                                        height: "180px",
+                                        borderRadius: "5%",
+                                        display: "flex",
+                                        alignItems: "center",
+                                        justifyContent: "center",
+                                        color: "black",
+                                        boxShadow: "0 2px 5px rgba(0,0,0,0.2)",
+                                        border: "2px solid black",
+                                    }}
                                     onClick={() => sendAction("discard", { hai_idx: index })}
                                 >
                                     {binary}
                                 </Button>
-
                             </Grid>
                         ))}
                     </Grid>
@@ -223,7 +234,7 @@ const MatchingRoom = () => {
                     <Button variant="contained" color="error" onClick={() => sendAction("claim_doubt", { target_id: roomId })} sx={{ mt: 2 }}>
                         ダウト宣言
                     </Button>
-                    <Typography variant="body1" sx={{ mt: 2 }}>捨て牌: {discarded.join(", ")}</Typography>
+
                     {winner && <Typography variant="h6" sx={{ mt: 2 }}>勝者: {winner}</Typography>}
                     <Typography variant="h6" sx={{ mt: 2 }}>
                         捨て牌Box:
