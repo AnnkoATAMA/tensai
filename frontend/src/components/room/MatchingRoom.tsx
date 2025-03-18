@@ -34,6 +34,7 @@ const MatchingRoom = () => {
     const [discardedTiles, setDiscardedTiles] = useState<{ [key: string]: string[] }>({});
     const [openPlayer, setOpenPlayer] = useState<string | null>(null);
     const [ronPlayer, setRonPlayer] = useState<string | null>(null);
+    const [ronPlayerHand, setRonPlayerHand] = useState<string[] | null>(null);
     useEffect(() => {
         if (!roomId) return;
 
@@ -49,9 +50,15 @@ const MatchingRoom = () => {
             const data = JSON.parse(event.data);
             console.log("WebSocket Message:", data);
 
+
             if (data.action === "game_started") {
                 setGameStarted(true);
                 sendGetGameState(ws);
+            }
+
+            if (data.action === "ron_claimed" || data.action === "tumo_claimed") {
+                setRonPlayer(data.player_id);
+                setRonPlayerHand(data.hand);
             }
 
             if (data.action === "game_state") {
@@ -286,8 +293,11 @@ const MatchingRoom = () => {
                                 </Grid>
                             ))}
                         </Grid>
+                        <Button variant="contained" color="success" onClick={() => sendAction("claim_tumo")} sx={{ mt: 2 }}>
+                            ツモ宣言
+                        </Button>
                         <Button variant="contained" color="success" onClick={() => sendAction("claim_ron")} sx={{ mt: 2 }}>
-                            宣言
+                            ロン宣言
                         </Button>
                         <Button
                             variant="contained"
@@ -315,6 +325,16 @@ const MatchingRoom = () => {
                             </Typography>
                         </DialogContent>
                     </Dialog>
+
+                    <Dialog open={ronPlayerHand !== null} onClose={() => setRonPlayerHand(null)}>
+                        <DialogTitle>{ronPlayer ? `プレイヤー ${ronPlayer} の上がり手牌` : ""}</DialogTitle>
+                        <DialogContent>
+                            <Typography>
+                                {ronPlayerHand ? ronPlayerHand.join(", ") : "手牌なし"}
+                            </Typography>
+                        </DialogContent>
+                    </Dialog>
+
                 </Card>
             )}
         </Box>
