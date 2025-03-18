@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import { Container, List, ListItem, ListItemText, Typography, Button, Card, Grid } from "@mui/material";
+import { Container, List, ListItem, ListItemText, Typography, Button, Card, Grid, Dialog, DialogTitle, DialogContent } from "@mui/material";
 import { fetchRoomPlayers, leaveRoom, deleteRoom } from "../../utils/roomApi";
 
 interface PlayerType {
@@ -18,7 +18,7 @@ const MatchingRoom = () => {
     const [winner, setWinner] = useState<string | null>(null);
     const [gameStarted, setGameStarted] = useState(false);
     const [discardedTiles, setDiscardedTiles] = useState<{ [key: string]: string[] }>({});
-
+    const [openPlayer, setOpenPlayer] = useState<string | null>(null);
 
     useEffect(() => {
         if (!roomId) return;
@@ -130,6 +130,14 @@ const MatchingRoom = () => {
         }
     };
 
+    const handleOpenDiscard = (playerId: string) => {
+        setOpenPlayer(playerId);
+    };
+
+    const handleCloseDiscard = () => {
+        setOpenPlayer(null);
+    };
+
     const sendAction = (action: string, payload: any = {}) => {
         if (socket && socket.readyState === WebSocket.OPEN) {
             socket.send(JSON.stringify({ action, ...payload }));
@@ -188,18 +196,32 @@ const MatchingRoom = () => {
                     <Typography variant="body1" sx={{ mt: 2 }}>捨て牌: {discarded.join(", ")}</Typography>
                     {winner && <Typography variant="h6" sx={{ mt: 2 }}>勝者: {winner}</Typography>}
                     <Typography variant="h6" sx={{ mt: 2 }}>
-                        捨て牌一覧:
+                        捨て牌Box:
                     </Typography>
-                    {Object.entries(discardedTiles).map(([playerId, tiles]) => (
-                        <Typography key={playerId} variant="body1">
-                            {`プレイヤー ${playerId}: ${tiles.join(", ")}`}
-                        </Typography>
+                    {Object.entries(discardedTiles).map(([playerId]) => (
+                        <Button
+                            key={playerId}
+                            variant="contained"
+                            color="primary"
+                            sx={{ margin: 1 }}
+                            onClick={() => handleOpenDiscard(playerId)}
+                        >
+                            {`プレイヤー ${playerId}` }
+                        </Button>
                     ))}
 
+                    <Dialog open={openPlayer !== null} onClose={handleCloseDiscard}>
+                        <DialogTitle>{openPlayer ? `プレイヤー ${openPlayer} の捨て牌` : ""}</DialogTitle>
+                        <DialogContent>
+                            <Typography>
+                                {openPlayer && discardedTiles[openPlayer] ? discardedTiles[openPlayer].join(", ") : "捨て牌なし"}
+                            </Typography>
+                        </DialogContent>
+                    </Dialog>
                 </Card>
             )}
         </Container>
     );
 };
-
+//
 export default MatchingRoom;
