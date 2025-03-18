@@ -33,6 +33,18 @@ async def websocket_endpoint(
     
     game = manager.get_game(room_id)
     
+    # タイムアウトイベントのコールバックを設定
+    if game:
+        async def on_doubt_timeout(timeout_result):
+            await manager.broadcast({
+                "action": "doubt_timeout",
+                "winner": timeout_result["winner"],
+                "reason": timeout_result["reason"]
+            }, room_id)
+        
+        # コールバックを登録
+        game.on_doubt_timeout = on_doubt_timeout
+    
     # player_idがplayersにない
     if game and player_id not in game.players:
         # ゲームが開始されている場合はエラーを返す
@@ -89,27 +101,19 @@ async def websocket_endpoint(
                 else:
                     await websocket.send_json({"error": result})
                     
-            # actionが"claim_ron"の場合, claim_ronメソッドを実行
             elif action == "claim_ron":
-                success, result = game.claim_ron(player_id)
+                success, result = await game.claim_ron(player_id)
                 
                 if success:
                     await manager.broadcast({
                         "action": "ron_claimed",
                         "player_id": player_id,
                         "doubt_available": result.get("doubt_available", False),
-                        "doubt_timeout": 30
+                        "doubt_timeout": result.get("doubt_timeout", 30)
                     }, room_id)
-                    # タイムアウト結果がある場合、それをブロードキャスト
-                    if "timeout_result" in result and result.get("game_finished", False):
-                        await manager.broadcast({
-                            "action": "doubt_timeout",
-                            "winner": result["timeout_result"]["winner"],
-                            "reason": result["timeout_result"]["reason"]
-                        }, room_id)
                 else:
                     await websocket.send_json({"error": result})
-                    
+                        
             # actionが"claim_doubt"の場合, claim_doubtメソッドを実行
             elif action == "claim_doubt":
                 target_id = data.get("target_id")
