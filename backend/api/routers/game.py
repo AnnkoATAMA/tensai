@@ -107,7 +107,7 @@ async def websocket_endpoint(
                 
                 if success:
                     
-                    player_hand = [str(hai) for hai in game.players[player_id].tehai]
+                    player_hand = [hai.str for hai in game.players[player_id].tehai]
                     
                     await manager.broadcast({
                         "action": "tumo_claimed",
@@ -125,7 +125,7 @@ async def websocket_endpoint(
                 
                 if success:
                     
-                    player_hand = [str(hai) for hai in game.players[player_id].tehai]
+                    player_hand = [hai.str for hai in game.players[player_id].tehai]
                     
                     await manager.broadcast({
                         "action": "ron_claimed",
