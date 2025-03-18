@@ -17,6 +17,8 @@ const MatchingRoom = () => {
     const [discarded, setDiscarded] = useState<string[]>([]);
     const [winner, setWinner] = useState<string | null>(null);
     const [gameStarted, setGameStarted] = useState(false);
+    const [discardedTiles, setDiscardedTiles] = useState<{ [key: string]: string[] }>({});
+
 
     useEffect(() => {
         if (!roomId) return;
@@ -57,7 +59,21 @@ const MatchingRoom = () => {
                 setHand(data.game_state.players[currentPlayerId]?.hand ?? []);
                 setDiscarded(data.game_state.players[currentPlayerId]?.discarded ?? []);
                 setWinner(data.game_state.winner ?? null);
+                const newDiscardedTiles: { [key: string]: string[] } = {};
+                Object.keys(data.game_state.players).forEach((id) => {
+                    newDiscardedTiles[id] = data.game_state.players[id]?.discarded ?? [];
+                });
+                setDiscardedTiles(newDiscardedTiles);
             }
+            if (data.action === "hai_discarded") {
+                const { last_action_player, last_discarded_hai } = data;
+
+                setDiscardedTiles((prev) => ({
+                    ...prev,
+                    [last_action_player]: [...(prev[last_action_player] || []), last_discarded_hai],
+                }));
+            }
+
         };
 
         ws.onclose = (event) => {
@@ -171,6 +187,15 @@ const MatchingRoom = () => {
                     </Button>
                     <Typography variant="body1" sx={{ mt: 2 }}>捨て牌: {discarded.join(", ")}</Typography>
                     {winner && <Typography variant="h6" sx={{ mt: 2 }}>勝者: {winner}</Typography>}
+                    <Typography variant="h6" sx={{ mt: 2 }}>
+                        捨て牌一覧:
+                    </Typography>
+                    {Object.entries(discardedTiles).map(([playerId, tiles]) => (
+                        <Typography key={playerId} variant="body1">
+                            {`プレイヤー ${playerId}: ${tiles.join(", ")}`}
+                        </Typography>
+                    ))}
+
                 </Card>
             )}
         </Container>
