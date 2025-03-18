@@ -94,7 +94,7 @@ class BinaryMahjongGame:
         self.last_discarded_hai = discarded_hai
         self.last_action_player = player_id
 
-        ron_time_seconds = 10
+        ron_time_seconds = 3
 
         # ロン宣言が可能なフラグを立てる
         self.ron_available = True

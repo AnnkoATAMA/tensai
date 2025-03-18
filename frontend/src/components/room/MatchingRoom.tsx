@@ -17,6 +17,7 @@ import { fetchRoomPlayers, leaveRoom, deleteRoom } from "../../utils/roomApi";
 import { PaiList } from "./PaiList.ts"
 
 interface PlayerType {
+    id: number;
     user_id: number;
     username: string;
 }
@@ -35,6 +36,8 @@ const MatchingRoom = () => {
     const [openPlayer, setOpenPlayer] = useState<string | null>(null);
     const [ronPlayer, setRonPlayer] = useState<string | null>(null);
     const [ronPlayerHand, setRonPlayerHand] = useState<string[] | null>(null);
+    const [currentPlayer, setCurrentPlayer] = useState<string | null>(null);
+
     useEffect(() => {
         if (!roomId) return;
 
@@ -82,9 +85,11 @@ const MatchingRoom = () => {
                 console.log("取得した手牌:", data.game_state.players[currentPlayerId]?.hand);
 
                 setHand(data.game_state.players[currentPlayerId]?.hand ?? []);
+                setCurrentPlayer(data.game_state.current_player_id ?? null);
                 setDiscarded(data.game_state.players[currentPlayerId]?.discarded ?? []);
                 setWinner(data.game_state.winner ?? null);
                 const newDiscardedTiles: { [key: string]: string[] } = {};
+
                 Object.keys(data.game_state.players).forEach((id) => {
                     newDiscardedTiles[id] = data.game_state.players[id]?.discarded ?? [];
                 });
@@ -165,6 +170,10 @@ const MatchingRoom = () => {
         setOpenPlayer(null);
     };
 
+    const handleCloseAgari = () => {
+        setRonPlayerHand(null)
+    }
+
     const sendAction = (action: string, payload: any = {}) => {
         if (socket && socket.readyState === WebSocket.OPEN) {
             socket.send(JSON.stringify({ action, ...payload }));
@@ -192,6 +201,15 @@ const MatchingRoom = () => {
         return binaryDiscarded;
     };
 
+    const convertAgariBinary = (ronPlayerHand: string[] | null) => {
+        return (ronPlayerHand ?? []).map(papa => {
+            const fifi = PaiList.find(pai => pai.name === papa);
+            return fifi ? fifi.binary :papa;
+        });
+    };
+
+    const binaryAgariHand = convertAgariBinary(ronPlayerHand);
+
     const binaryDiscarded = convertTobinaryDiscarded(discardedTiles);
 
     const directions = ["東", "西", "南", "北"] as const;
@@ -213,10 +231,11 @@ const MatchingRoom = () => {
             <List>
                 {players.map((player) => (
                     <ListItem key={player.user_id}>
-                        <ListItemText primary={player.username} />
+                        <ListItemText primary={`${player.id}: ${player.username}`} />
                     </ListItem>
                 ))}
             </List>
+
 
             {!gameStarted && (
                 <Button variant="contained" color="primary" sx={{ mt: 2 }} onClick={handleStartGame}>
@@ -268,6 +287,10 @@ const MatchingRoom = () => {
                         })}
                     </Box>
                     <Box sx={{ marginTop: "auto" }}>
+                        <Typography variant="h6" sx={{ mt: 2 }}>
+                            現在のプレイヤーID: {currentPlayer ?? "未定"}
+                        </Typography>
+
                         <Grid container spacing={1} justifyContent="center">
                             {binaryHand.map((binary, index) => (
                                 <Grid item key={index}>
@@ -326,14 +349,15 @@ const MatchingRoom = () => {
                         </DialogContent>
                     </Dialog>
 
-                    <Dialog open={ronPlayerHand !== null} onClose={() => setRonPlayerHand(null)}>
+                    <Dialog open={binaryAgariHand.length > 0} onClose={handleCloseAgari}>
                         <DialogTitle>{ronPlayer ? `プレイヤー ${ronPlayer} の上がり手牌` : ""}</DialogTitle>
                         <DialogContent>
                             <Typography>
-                                {ronPlayerHand ? ronPlayerHand.join(", ") : "手牌なし"}
+                                {binaryAgariHand.length > 0 ? binaryAgariHand.join(", ") : "手牌なし"}
                             </Typography>
                         </DialogContent>
                     </Dialog>
+
 
                 </Card>
             )}
