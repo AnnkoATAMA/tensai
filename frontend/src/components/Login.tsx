@@ -5,7 +5,7 @@ import axios from "axios";
 import { AuthContext } from "./AuthContext.tsx";
 
 const loginUser = async (email: string, password: string) => {
-    return axios.post("https://bra.annko.jp/api/user/login", { email, password }, { withCredentials: true });
+    return axios.post("http://172.20.10.2:8000/api/user/login", { email, password }, { withCredentials: true });
 };
 
 const Login = () => {

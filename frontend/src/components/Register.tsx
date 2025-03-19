@@ -4,7 +4,7 @@ import { Container, TextField, Button, Typography, Box } from "@mui/material";
 import axios from "axios";
 
 const registerUser = async (name: string, email: string, password: string) => {
-    return axios.post("https://bra.annko.jp/api/user/register", { name, email, password }, { withCredentials: true });
+    return axios.post("http://172.20.10.2:8000/api/user/register", { name, email, password }, { withCredentials: true });
 };
 
 const Register = () => {
