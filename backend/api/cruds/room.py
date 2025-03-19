@@ -222,7 +222,7 @@ async def leave_room(
 async def get_room_players(room_id: int, db: AsyncSession):
     try:
         result = await db.execute(
-            select(player_model.Player.user_id, user_model.User.name)
+            select(player_model.Player.id, player_model.Player.user_id, user_model.User.name)
             .join(user_model.User, user_model.User.id == player_model.Player.user_id)
             .where(player_model.Player.room_id == room_id)
         )
@@ -231,7 +231,7 @@ async def get_room_players(room_id: int, db: AsyncSession):
         if not players:
             return []
 
-        return [{"user_id": player[0], "username": player[1]} for player in players]
+        return [{"id": player[0], "user_id": player[1], "username": player[2]} for player in players]
 
     except Exception as e:
         print(f"Error in get_room_players: {e}")
