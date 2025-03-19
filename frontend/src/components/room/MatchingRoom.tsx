@@ -1,7 +1,8 @@
 import { useState, useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import { Container, List, ListItem, ListItemText, Typography, Button, Card, Grid } from "@mui/material";
+import { Container, List, ListItem, ListItemText, Typography, Button, Card, Grid, Dialog, DialogTitle, DialogContent } from "@mui/material";
 import { fetchRoomPlayers, leaveRoom, deleteRoom } from "../../utils/roomApi";
+import { PaiList } from "./PaiList.ts"
 
 interface PlayerType {
     user_id: number;
@@ -17,7 +18,9 @@ const MatchingRoom = () => {
     const [discarded, setDiscarded] = useState<string[]>([]);
     const [winner, setWinner] = useState<string | null>(null);
     const [gameStarted, setGameStarted] = useState(false);
-
+    const [discardedTiles, setDiscardedTiles] = useState<{ [key: string]: string[] }>({});
+    const [openPlayer, setOpenPlayer] = useState<string | null>(null);
+    const [ronPlayer, setRonPlayer] = useState<string | null>(null);
     useEffect(() => {
         if (!roomId) return;
 
@@ -34,7 +37,6 @@ const MatchingRoom = () => {
             console.log("WebSocket Message:", data);
 
             if (data.action === "game_started") {
-                console.log("ゲーム開始！リアルタイムで手牌を取得する");
                 setGameStarted(true);
                 sendGetGameState(ws);
             }
@@ -50,6 +52,11 @@ const MatchingRoom = () => {
                     console.warn("手牌を持つプレイヤーが見つかりませんでした。");
                     return;
                 }
+                if (data.game_state.ron_player) {
+                    setRonPlayer(data.game_state.ron_player);
+                } else {
+                    console.log()
+                }
 
                 console.log("現在のプレイヤーID:", currentPlayerId);
                 console.log("取得した手牌:", data.game_state.players[currentPlayerId]?.hand);
@@ -57,7 +64,22 @@ const MatchingRoom = () => {
                 setHand(data.game_state.players[currentPlayerId]?.hand ?? []);
                 setDiscarded(data.game_state.players[currentPlayerId]?.discarded ?? []);
                 setWinner(data.game_state.winner ?? null);
+                const newDiscardedTiles: { [key: string]: string[] } = {};
+                Object.keys(data.game_state.players).forEach((id) => {
+                    newDiscardedTiles[id] = data.game_state.players[id]?.discarded ?? [];
+                });
+                setDiscardedTiles(newDiscardedTiles);
             }
+            if (data.action === "hai_discarded") {
+                const { last_action_player, last_discarded_hai } = data;
+
+                setDiscardedTiles((prev) => ({
+                    ...prev,
+                    [last_action_player]: [...(prev[last_action_player] || []), last_discarded_hai],
+                }));
+            }
+
+
         };
 
         ws.onclose = (event) => {
@@ -114,11 +136,44 @@ const MatchingRoom = () => {
         }
     };
 
+    const handleOpenDiscard = (playerId: string) => {
+        console.log(discarded)
+        setOpenPlayer(playerId);
+    };
+
+    const handleCloseDiscard = () => {
+        setOpenPlayer(null);
+    };
+
     const sendAction = (action: string, payload: any = {}) => {
         if (socket && socket.readyState === WebSocket.OPEN) {
             socket.send(JSON.stringify({ action, ...payload }));
         }
     };
+
+    const convertToBinaryHand = (hand: string[]) => {
+        return hand.map(tile => {
+            const found = PaiList.find(pai => pai.name === tile);
+            return found ? found.binary : tile;
+        });
+    };
+    const binaryHand = convertToBinaryHand(hand);
+
+    const convertTobinaryDiscarded = (discardedTiles: { [key: string]: string[] }) => {
+        const binaryDiscarded: { [key: string]: string[] } = {};
+
+        Object.entries(discardedTiles).forEach(([playerId, tiles]) => {
+            binaryDiscarded[playerId] = tiles.map(pai => {
+                const found = PaiList.find(pais => pais.name === pai);
+                return found ? found.binary : pai;
+            });
+        });
+
+        return binaryDiscarded;
+    };
+
+    const binaryDiscarded = convertTobinaryDiscarded(discardedTiles);
+
 
     return (
         <Container sx={{ mt: 4 }}>
@@ -149,32 +204,80 @@ const MatchingRoom = () => {
             </Button>
 
             {gameStarted && (
-                <Card sx={{ padding: 2, maxWidth: 600, margin: "auto", mt: 4 }}>
+                <Card sx={{ padding: 2, maxWidth: 1200, margin: "auto", mt: 4, background: "radial-gradient(#00633A, #014026)", border:"8px solid", borderImage:"radial-gradient(#83420c, #4e300a)49%"}}>
                     <Typography variant="h5">バイナリ麻雀</Typography>
                     <Grid container spacing={1}>
-                        {hand.map((tile, index) => (
+                        {binaryHand.map((binary, index) => (
                             <Grid item key={index}>
-                                <Button variant="contained" color="secondary" onClick={() => sendAction("discard", { hai_idx: index })}>
-                                    {tile}
+                                <Button
+                                    variant="contained"
+                                    sx={{
+                                        fontSize: "10px",
+                                        background: "linear-gradient(180deg, #e38010 0%, #e38010 10%, white 10%, white 90%)", // ✅ 閉じカッコを追加
+                                        width: "97px",
+                                        height: "180px",
+                                        borderRadius: "5%",
+                                        display: "flex",
+                                        alignItems: "center",
+                                        justifyContent: "center",
+                                        color: "black",
+                                        boxShadow: "0 2px 5px rgba(0,0,0,0.2)",
+                                        border: "2px solid black",
+                                    }}
+                                    onClick={() => sendAction("discard", { hai_idx: index })}
+                                >
+                                    {binary}
                                 </Button>
                             </Grid>
                         ))}
                     </Grid>
-                    <Button variant="contained" color="primary" onClick={() => sendAction("draw")} sx={{ mt: 2 }}>
-                        ツモる
-                    </Button>
                     <Button variant="contained" color="success" onClick={() => sendAction("claim_ron")} sx={{ mt: 2 }}>
-                        ロン宣言
+                        上がり宣言
                     </Button>
-                    <Button variant="contained" color="error" onClick={() => sendAction("claim_doubt", { target_id: roomId })} sx={{ mt: 2 }}>
+                    <Button
+                        variant="contained"
+                        color="error"
+                        onClick={() => {
+                            if (!ronPlayer) {
+                                console.warn("ダウト対象がいないため送信できません");
+                                return;
+                            }
+                            sendAction("claim_doubt", { target_id: ronPlayer });
+                        }}
+                        sx={{ mt: 2 }}
+                    >
                         ダウト宣言
                     </Button>
-                    <Typography variant="body1" sx={{ mt: 2 }}>捨て牌: {discarded.join(", ")}</Typography>
+
+
                     {winner && <Typography variant="h6" sx={{ mt: 2 }}>勝者: {winner}</Typography>}
+                    <Typography variant="h6" sx={{ mt: 2 }}>
+                        捨て牌Box:
+                    </Typography>
+                    {Object.entries(binaryDiscarded).map(([playerId]) => (
+                        <Button
+                            key={playerId}
+                            variant="contained"
+                            color="primary"
+                            sx={{ margin: 1 }}
+                            onClick={() => handleOpenDiscard(playerId)}
+                        >
+                            {`プレイヤー ${playerId}` }
+                        </Button>
+                    ))}
+
+                    <Dialog open={openPlayer !== null} onClose={handleCloseDiscard}>
+                        <DialogTitle>{openPlayer ? `プレイヤー ${openPlayer} の捨て牌` : ""}</DialogTitle>
+                        <DialogContent>
+                            <Typography>
+                                {openPlayer && binaryDiscarded[openPlayer] ? binaryDiscarded[openPlayer].join(", ") : "捨て牌なし"}
+                            </Typography>
+                        </DialogContent>
+                    </Dialog>
                 </Card>
             )}
         </Container>
     );
 };
-
+//
 export default MatchingRoom;
