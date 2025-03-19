@@ -67,6 +67,7 @@ class GameActionManager:
 
         return True, result
     
+    # ロンタイマーが終了したときに呼び出されるコールバック関数
     async def _on_ron_timeout(self):
         """ロン猶予時間終了時の処理"""
         if self.state.ron_available and not self.state.game_finished:
@@ -185,6 +186,7 @@ class GameActionManager:
 
         return True, result
 
+    # タイマーが終了したときに呼び出されるコールバック関数
     async def _on_doubt_timeout(self, is_valid: bool, player_id: str, claim_type: str):
         """ダウト猶予時間終了時の処理"""
         if self.state.doubt_available and not self.state.game_finished:

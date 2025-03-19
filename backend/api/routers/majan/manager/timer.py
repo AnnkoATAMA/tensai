@@ -9,9 +9,11 @@ class GameTimer:
         self.doubt_timer = None
         self.tumo_timer = None
     
-    async def start_ron_timer(self, 
-                             seconds: int, 
-                             on_timeout: Callable[[], Coroutine[Any, Any, None]]) -> None:
+    async def start_ron_timer(
+        self, 
+        seconds: int, 
+        on_timeout: Callable[[], Coroutine[Any, Any, None]]
+        ) -> None:
         """ロン猶予時間のタイマーを開始"""
         if self.ron_timer:
             self.ron_timer.cancel()
@@ -25,12 +27,14 @@ class GameTimer:
         
         self.ron_timer = asyncio.create_task(timer_callback())
     
-    async def start_doubt_timer(self, 
-                               seconds: int, 
-                               on_timeout: Callable[[bool, str], Coroutine[Any, Any, None]], 
-                               is_valid: bool,
-                               player_id: str,
-                               claim_type: str) -> None:
+    async def start_doubt_timer(
+        self, 
+        seconds: int, 
+        on_timeout: Callable[[bool, str], Coroutine[Any, Any, None]], 
+        is_valid: bool,
+        player_id: str,
+        claim_type: str
+        ) -> None:
         """ダウト猶予時間のタイマーを開始"""
         if self.doubt_timer:
             self.doubt_timer.cancel()
