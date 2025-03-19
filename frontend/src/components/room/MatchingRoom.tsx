@@ -41,7 +41,7 @@ const MatchingRoom = () => {
     useEffect(() => {
         if (!roomId) return;
 
-        const WS_URL = `ws://bra.annko.jp/room/${roomId}/ws`;
+        const WS_URL = `wss://bra.annko.jp/room/${roomId}/ws`;
         const ws = new WebSocket(WS_URL);
         setSocket(ws);
 
