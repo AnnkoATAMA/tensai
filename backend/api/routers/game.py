@@ -4,7 +4,7 @@ from models import player as player_model
 from sqlalchemy.future import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from db import get_db
-from .majan.manager.connection_manager import ConnectionManager
+from .majan.manager.connection import ConnectionManager
 
 game_router = APIRouter()
 manager = ConnectionManager()

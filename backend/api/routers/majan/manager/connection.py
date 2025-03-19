@@ -1,6 +1,6 @@
 from fastapi import WebSocket
 from typing import Dict
-from .game_manager import BinaryMahjongGame
+from .game import BinaryMahjongGame
 
 class ConnectionManager:
     def __init__(self):
