@@ -13,6 +13,7 @@ origins = [
     "http://localhost:5173",
     "http://172.20.10.2:5173",
     "http://172.20.10.2:8000",
+    "https:bra.annko.jp"
 ]
 
 app.add_middleware(
