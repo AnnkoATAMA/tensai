@@ -89,55 +89,53 @@ class GameActionManager:
     
     async def claim_tumo(self, player_id: str) -> Tuple[bool, Any]:
         """ツモあがり宣言"""
-        try:
-            # 事前条件チェック
-            if not self.state.game_started or self.state.game_finished:
-                return False, "ゲームは開始されていないか終了しています"
-                
-            if not self.state.is_player_turn(player_id):
-                return False, "あなたの手番ではありません"
+        
+        # 事前条件チェック
+        if not self.state.game_started or self.state.game_finished:
+            return False, "ゲームは開始されていないか終了しています"
             
-            player = self.state.players[player_id]
-            
-            # 状態の更新
-            self.state.doubt_available = True
-            self.state.tumo = False
-            self.timer.cancel_timer('tumo_timer')
-            
-            # ツモプレイヤーを記録
-            self.state.tumo_player = player_id
-            
-            # 手牌を公開
-            self.state.make_hand_public(player_id)
-            
-            # ツモあがり可能かチェック（内部判定）
-            is_tumo_valid = player.can_tumo()
-            
-            # ダウトタイマーの設定
-            doubt_time_seconds = 30
-            self.timer.cancel_timer('doubt_timer')
+        if not self.state.is_player_turn(player_id):
+            return False, "あなたの手番ではありません"
+        
+        player = self.state.players[player_id]
+        
+        # 状態の更新
+        self.state.doubt_available = True
+        self.state.tumo = False
+        self.timer.cancel_timer('tumo_timer')
+        
+        # ツモプレイヤーを記録
+        self.state.tumo_player = player_id
+        
+        # 手牌を公開
+        self.state.make_hand_public(player_id)
+        
+        # ツモあがり可能かチェック（内部判定）
+        is_tumo_valid = player.can_tumo()
+        
+        # ダウトタイマーの設定
+        doubt_time_seconds = 30
+        self.timer.cancel_timer('doubt_timer')
 
-            # タイマー開始
-            await self.timer.start_doubt_timer(
-                doubt_time_seconds, 
-                self._on_doubt_timeout,
-                is_tumo_valid,
-                player_id,
-                "ツモあがり"
-            )
+        # タイマー開始
+        await self.timer.start_doubt_timer(
+            doubt_time_seconds, 
+            self._on_doubt_timeout,
+            is_tumo_valid,
+            player_id,
+            "ツモあがり"
+        )
 
-            # 結果を返す
-            result = {
-                "message": "ツモあがりが宣言されました",
-                "doubt_available": True,
-                "is_tumo_valid": is_tumo_valid,
-                "doubt_timeout": doubt_time_seconds
-            }
+        # 結果を返す
+        result = {
+            "message": "ツモあがりが宣言されました",
+            "doubt_available": True,
+            "is_tumo_valid": is_tumo_valid,
+            "doubt_timeout": doubt_time_seconds
+        }
 
-            return True, result
-        except Exception as e:
-            print(f"Error in claim_tumo: {str(e)}")
-            return False, f"ツモあがり処理でエラー: {str(e)}"
+        return True, result
+        
     
     async def claim_ron(self, player_id: str) -> Tuple[bool, Any]:
         """ロン宣言"""
