@@ -1,6 +1,6 @@
 import axios from "axios";
 
-const API_URL = "http://172.20.10.2:8000";
+const API_URL = "https://bra.annko.jp";
 
 export const fetchRooms = async () => {
     return axios.get(`${API_URL}/room`, { withCredentials: true })

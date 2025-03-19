@@ -1,0 +1,45 @@
+.homepage-container {
+    position: relative;
+    width: 100vw;
+    height: 100vh;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    overflow: hidden;
+    background-color: #0a0a0a;
+    color: white;
+}
+
+.binary-background {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    overflow: hidden;
+}
+
+.binary-number {
+    position: absolute;
+    font-size: 24px;
+    color: rgba(0, 255, 0, 0.7);
+    font-family: monospace;
+    animation: binaryRain linear infinite;
+}
+
+@keyframes binaryRain {
+    0% {
+        transform: translateY(-100%);
+        opacity: 0;
+    }
+    100% {
+        transform: translateY(860px);
+        opacity: 1;
+    }
+}
+
+.start{
+    font-size: 20px;
+    color: #08985a;
+}
