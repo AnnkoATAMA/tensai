@@ -101,15 +101,39 @@ async def websocket_endpoint(
                 else:
                     await websocket.send_json({"error": result})
                     
+            # actionが"tsumo"の場合, claim_tumoメソッドを実行
+            elif action == "claim_tumo":
+                success, result = await game.claim_tumo(player_id)
+                
+                if success:
+                    
+                    player_hand = [hai.str for hai in game.players[player_id].tehai]
+                    
+                    await manager.broadcast({
+                        "action": "tumo_claimed",
+                        "player_id": player_id,
+                        "doubt_available": result.get("doubt_available", False),
+                        "doubt_timeout": result.get("doubt_timeout", 30),
+                        "hand": player_hand
+                    }, room_id)
+                else:
+                    await websocket.send_json({"error": result})
+                    
+            # actionが"claim_ron"の場合, claim_ronメソッドを実行
             elif action == "claim_ron":
                 success, result = await game.claim_ron(player_id)
                 
                 if success:
+                    
+                    player_hand = [hai.str for hai in game.players[player_id].tehai]
+                    
                     await manager.broadcast({
                         "action": "ron_claimed",
                         "player_id": player_id,
                         "doubt_available": result.get("doubt_available", False),
-                        "doubt_timeout": result.get("doubt_timeout", 30)
+                        "doubt_timeout": result.get("doubt_timeout", 30),
+                        "hand": player_hand,
+                        "last_hai": str(game.last_discarded_hai) if game.last_discarded_hai else None
                     }, room_id)
                 else:
                     await websocket.send_json({"error": result})
@@ -120,12 +144,16 @@ async def websocket_endpoint(
                 success, result = await game.claim_doubt(player_id, target_id)
                 
                 if success:
+                    
+                    target_hand = [str(hai) for hai in game.players[target_id].tehai]
+                    
                     await manager.broadcast({
                         "action": "doubt_result",
                         "doubter_id": player_id,
                         "target_id": target_id,
                         "winner": result["winner"],
-                        "reason": result["reason"]
+                        "reason": result["reason"],
+                        "hand": target_hand
                     }, room_id)
                 else:
                     await websocket.send_json({"error": result})

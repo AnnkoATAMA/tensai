@@ -1,13 +1,27 @@
 import { useState, useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import { Container, List, ListItem, ListItemText, Typography, Button, Card, Grid, Dialog, DialogTitle, DialogContent } from "@mui/material";
+import {
+    List,
+    ListItem,
+    ListItemText,
+    Typography,
+    Button,
+    Card,
+    Grid,
+    Dialog,
+    DialogTitle,
+    DialogContent,
+    Box
+} from "@mui/material";
 import { fetchRoomPlayers, leaveRoom, deleteRoom } from "../../utils/roomApi";
 import { PaiList } from "./PaiList.ts"
 
 interface PlayerType {
+    id: number;
     user_id: number;
     username: string;
 }
+
 
 const MatchingRoom = () => {
     const { roomId } = useParams<{ roomId: string }>();
@@ -21,6 +35,10 @@ const MatchingRoom = () => {
     const [discardedTiles, setDiscardedTiles] = useState<{ [key: string]: string[] }>({});
     const [openPlayer, setOpenPlayer] = useState<string | null>(null);
     const [ronPlayer, setRonPlayer] = useState<string | null>(null);
+    const [ronPlayerHand, setRonPlayerHand] = useState<string[] | null>(null);
+    const [currentPlayer, setCurrentPlayer] = useState<string | null>(null);
+    const [latestDiscard, setLatestDiscard] = useState<string | null>(null);
+
     useEffect(() => {
         if (!roomId) return;
 
@@ -36,9 +54,15 @@ const MatchingRoom = () => {
             const data = JSON.parse(event.data);
             console.log("WebSocket Message:", data);
 
+
             if (data.action === "game_started") {
                 setGameStarted(true);
                 sendGetGameState(ws);
+            }
+
+            if (data.action === "ron_claimed" || data.action === "tumo_claimed") {
+                setRonPlayer(data.player_id);
+                setRonPlayerHand(data.hand);
             }
 
             if (data.action === "game_state") {
@@ -62,9 +86,11 @@ const MatchingRoom = () => {
                 console.log("取得した手牌:", data.game_state.players[currentPlayerId]?.hand);
 
                 setHand(data.game_state.players[currentPlayerId]?.hand ?? []);
+                setCurrentPlayer(data.game_state.current_player_id ?? null);
                 setDiscarded(data.game_state.players[currentPlayerId]?.discarded ?? []);
                 setWinner(data.game_state.winner ?? null);
                 const newDiscardedTiles: { [key: string]: string[] } = {};
+
                 Object.keys(data.game_state.players).forEach((id) => {
                     newDiscardedTiles[id] = data.game_state.players[id]?.discarded ?? [];
                 });
@@ -77,6 +103,8 @@ const MatchingRoom = () => {
                     ...prev,
                     [last_action_player]: [...(prev[last_action_player] || []), last_discarded_hai],
                 }));
+
+                setLatestDiscard(data.game_state.last_discarded_hai);
             }
 
 
@@ -145,6 +173,10 @@ const MatchingRoom = () => {
         setOpenPlayer(null);
     };
 
+    const handleCloseAgari = () => {
+        setRonPlayerHand(null)
+    }
+
     const sendAction = (action: string, payload: any = {}) => {
         if (socket && socket.readyState === WebSocket.OPEN) {
             socket.send(JSON.stringify({ action, ...payload }));
@@ -172,11 +204,38 @@ const MatchingRoom = () => {
         return binaryDiscarded;
     };
 
+    const convertAgariBinary = (ronPlayerHand: string[] | null) => {
+        return (ronPlayerHand ?? []).map(papa => {
+            const fifi = PaiList.find(pai => pai.name === papa);
+            return fifi ? fifi.binary :papa;
+        });
+    };
+
+    const binaryAgariHand = convertAgariBinary(ronPlayerHand);
+
     const binaryDiscarded = convertTobinaryDiscarded(discardedTiles);
 
+    const convertTyokuzenBinary = (latestDiscard:string | null) => {
+        const found = PaiList.find(pai => pai.name === latestDiscard);
+        return found ? found.binary : latestDiscard;
+    };
+
+    const binaryTyokuzen = convertTyokuzenBinary(latestDiscard)
+
+
+
+    const directions = ["東", "西", "南", "北"] as const;
+    type DirectionType = typeof directions[number];
+
+    const positions: Record<DirectionType, { position: string; top?: string; bottom?: string; left?: string; right?: string; transform?: string }> = {
+        東: { position: "absolute", right: "20%", top: "30%" },
+        西: { position: "absolute", left: "20%", top: "30%" },
+        南: { position: "absolute", bottom: "5%", left: "50%", transform: "translateX(-50%)" },
+        北: { position: "absolute", top: "5%", left: "50%", transform: "translateX(-50%)" }
+    };
 
     return (
-        <Container sx={{ mt: 4 }}>
+        <Box sx={{ mt: 4 }}>
             <Typography variant="h5" gutterBottom>
                 ルーム {roomId} - 参加者一覧
             </Typography>
@@ -184,10 +243,11 @@ const MatchingRoom = () => {
             <List>
                 {players.map((player) => (
                     <ListItem key={player.user_id}>
-                        <ListItemText primary={player.username} />
+                        <ListItemText primary={`${player.id}: ${player.username}`} />
                     </ListItem>
                 ))}
             </List>
+
 
             {!gameStarted && (
                 <Button variant="contained" color="primary" sx={{ mt: 2 }} onClick={handleStartGame}>
@@ -204,13 +264,50 @@ const MatchingRoom = () => {
             </Button>
 
             {gameStarted && (
-                <Card sx={{ padding: 2, maxWidth: 1200, margin: "auto", mt: 4, background: "radial-gradient(#00633A, #014026)", border:"8px solid", borderImage:"radial-gradient(#83420c, #4e300a)49%"}}>
+                <Card
+                    sx={{
+                        display: "flex",
+                        flexDirection: "column",
+                        justifyContent: "space-between",
+                        padding: 2,
+                        height: 1000,
+                        maxWidth: 1800,
+                        margin: "auto",
+                        mt: 4,
+                        background: "radial-gradient(#00633A, #014026)",
+                        border: "8px solid",
+                        borderImage: "radial-gradient(#83420c, #4e300a)49%",
+                    }}
+                >
                     <Typography variant="h5">バイナリ麻雀</Typography>
-                    <Grid container spacing={1}>
-                        {binaryHand.map((binary, index) => (
-                            <Grid item key={index}>
+
+                    <Box sx={{ position: "relative", width: "100%", height: "400px", display: "flex", justifyContent: "center", alignItems: "center" }}>
+                        {directions.map((direction, index) => {
+                            const playerId = Object.keys(binaryDiscarded)[index];
+                            return (
                                 <Button
+                                    key={direction}
                                     variant="contained"
+                                    color="primary"
+                                    sx={{ ...positions[direction] }}
+                                    onClick={() => playerId && handleOpenDiscard(playerId)}
+                                    disabled={!playerId}
+                                >
+                                    {direction}
+                                </Button>
+                            );
+                        })}
+                    </Box>
+                    <Box sx={{ marginTop: "auto" }}>
+                        <Box>
+                            <Typography variant="h6" sx={{ mt: 2 }}>
+                                現在のプレイヤー: {currentPlayer ?? "未定"}
+                            </Typography>
+                            <Box sx={{display:"flex", flexDirection:"column"}}>
+                                <Typography variant="h6">
+                                    直前に捨てられた牌
+                                </Typography>
+                                <Button
                                     sx={{
                                         fontSize: "10px",
                                         background: "linear-gradient(180deg, #e38010 0%, #e38010 10%, white 10%, white 90%)", // ✅ 閉じカッコを追加
@@ -223,61 +320,110 @@ const MatchingRoom = () => {
                                         color: "black",
                                         boxShadow: "0 2px 5px rgba(0,0,0,0.2)",
                                         border: "2px solid black",
-                                    }}
-                                    onClick={() => sendAction("discard", { hai_idx: index })}
-                                >
-                                    {binary}
+                                    }}>
+                                    {binaryTyokuzen ? `${binaryTyokuzen}` : null}
                                 </Button>
-                            </Grid>
-                        ))}
-                    </Grid>
-                    <Button variant="contained" color="success" onClick={() => sendAction("claim_ron")} sx={{ mt: 2 }}>
-                        上がり宣言
-                    </Button>
-                    <Button
-                        variant="contained"
-                        color="error"
-                        onClick={() => {
-                            if (!ronPlayer) {
-                                console.warn("ダウト対象がいないため送信できません");
-                                return;
-                            }
-                            sendAction("claim_doubt", { target_id: ronPlayer });
-                        }}
-                        sx={{ mt: 2 }}
-                    >
-                        ダウト宣言
-                    </Button>
+                            </Box>
+
+                        </Box>
 
 
-                    {winner && <Typography variant="h6" sx={{ mt: 2 }}>勝者: {winner}</Typography>}
-                    <Typography variant="h6" sx={{ mt: 2 }}>
-                        捨て牌Box:
-                    </Typography>
-                    {Object.entries(binaryDiscarded).map(([playerId]) => (
-                        <Button
-                            key={playerId}
-                            variant="contained"
-                            color="primary"
-                            sx={{ margin: 1 }}
-                            onClick={() => handleOpenDiscard(playerId)}
-                        >
-                            {`プレイヤー ${playerId}` }
+
+                        <Grid container spacing={1} justifyContent="center">
+                            {binaryHand.map((binary, index) => (
+                                <Grid item key={index}>
+                                    <Button
+                                        variant="contained"
+                                        sx={{
+                                            fontSize: "10px",
+                                            background: "linear-gradient(180deg, #e38010 0%, #e38010 10%, white 10%, white 90%)", // ✅ 閉じカッコを追加
+                                            width: "97px",
+                                            height: "180px",
+                                            borderRadius: "5%",
+                                            display: "flex",
+                                            alignItems: "center",
+                                            justifyContent: "center",
+                                            color: "black",
+                                            boxShadow: "0 2px 5px rgba(0,0,0,0.2)",
+                                            border: "2px solid black",
+                                        }}
+                                        onClick={() => sendAction("discard", { hai_idx: index })}
+                                    >
+                                        {binary}
+                                    </Button>
+                                </Grid>
+                            ))}
+                        </Grid>
+                        <Button variant="contained" color="success" onClick={() => sendAction("claim_tumo")} sx={{ mt: 2 }}>
+                            ツモ宣言
                         </Button>
-                    ))}
+                        <Button variant="contained" color="success" onClick={() => sendAction("claim_ron")} sx={{ mt: 2 }}>
+                            ロン宣言
+                        </Button>
+                        <Button
+                            variant="contained"
+                            color="error"
+                            onClick={() => {
+                                if (!ronPlayer) {
+                                    console.warn("ダウト対象がいないため送信できません");
+                                    return;
+                                }
+                                sendAction("claim_doubt", { target_id: ronPlayer });
+                            }}
+                            sx={{ mt: 2 }}
+                        >
+                            ダウト宣言
+                        </Button>
+                    </Box>
+                    {winner && <Typography variant="h6" sx={{ mt: 2 }}>勝者: {winner}</Typography>}
 
-                    <Dialog open={openPlayer !== null} onClose={handleCloseDiscard}>
-                        <DialogTitle>{openPlayer ? `プレイヤー ${openPlayer} の捨て牌` : ""}</DialogTitle>
+
+                    <Dialog
+                        open={openPlayer !== null}
+                        onClose={handleCloseDiscard}
+                        sx={{
+                            "& .MuiPaper-root": {
+                                backgroundColor: "#004d26",
+                                border: "2px solid #00e676",
+                            },
+                        }}
+                    >
+                        <DialogTitle sx={{ backgroundColor: "#00e676", color: "#004d26", fontWeight: "bold" }}>
+                            {openPlayer ? `プレイヤー ${openPlayer} の捨て牌` : ""}
+                        </DialogTitle>
                         <DialogContent>
-                            <Typography>
+                            <Typography sx={{ color: "#ffffff" }}>
                                 {openPlayer && binaryDiscarded[openPlayer] ? binaryDiscarded[openPlayer].join(", ") : "捨て牌なし"}
                             </Typography>
                         </DialogContent>
                     </Dialog>
+
+                    <Dialog
+                        open={binaryAgariHand.length > 0}
+                        onClose={handleCloseAgari}
+                        sx={{
+                            "& .MuiPaper-root": {
+                                backgroundColor: "#004d26",
+                                border: "2px solid #00e676",
+                            },
+                        }}
+                    >
+                        <DialogTitle sx={{ backgroundColor: "#00e676", color: "#004d26", fontWeight: "bold" }}>
+                            {ronPlayer ? `プレイヤー ${ronPlayer} の上がり手牌` : ""}
+                        </DialogTitle>
+                        <DialogContent>
+                            <Typography sx={{ color: "#ffffff" }}>
+                                {binaryAgariHand.length > 0 ? binaryAgariHand.join(", ") : "手牌なし"}
+                            </Typography>
+                        </DialogContent>
+                    </Dialog>
+
+
+
                 </Card>
             )}
-        </Container>
+        </Box>
     );
 };
-//
+
 export default MatchingRoom;

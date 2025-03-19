@@ -68,6 +68,11 @@ class Janshi:
         temp_tehai = self.tehai + [discarded_tile]
         shantensuu = rule.Rule.shantensuu(temp_tehai)
         return shantensuu == -1
+    
+    def can_tumo(self):
+        temp_tehai = self.tehai
+        shantensuu = rule.Rule.shantensuu(temp_tehai)
+        return shantensuu == -1
 
 
 
