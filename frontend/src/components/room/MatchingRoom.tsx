@@ -215,6 +215,15 @@ const MatchingRoom = () => {
 
     const binaryDiscarded = convertTobinaryDiscarded(discardedTiles);
 
+    const convertTyokuzenBinary = (latestDiscard:string | null) => {
+        const found = PaiList.find(pai => pai.name === latestDiscard);
+        return found ? found.binary : latestDiscard;
+    };
+
+    const binaryTyokuzen = convertTyokuzenBinary(latestDiscard)
+
+
+
     const directions = ["東", "西", "南", "北"] as const;
     type DirectionType = typeof directions[number];
 
@@ -292,25 +301,30 @@ const MatchingRoom = () => {
                     <Box sx={{ marginTop: "auto" }}>
                         <Box>
                             <Typography variant="h6" sx={{ mt: 2 }}>
-                                現在のプレイヤーID: {currentPlayer ?? "未定"}
+                                現在のプレイヤー: {currentPlayer ?? "未定"}
                             </Typography>
+                            <Box sx={{display:"flex", flexDirection:"column"}}>
+                                <Typography variant="h6">
+                                    直前に捨てられた牌
+                                </Typography>
+                                <Button
+                                    sx={{
+                                        fontSize: "10px",
+                                        background: "linear-gradient(180deg, #e38010 0%, #e38010 10%, white 10%, white 90%)", // ✅ 閉じカッコを追加
+                                        width: "97px",
+                                        height: "180px",
+                                        borderRadius: "5%",
+                                        display: "flex",
+                                        alignItems: "center",
+                                        justifyContent: "center",
+                                        color: "black",
+                                        boxShadow: "0 2px 5px rgba(0,0,0,0.2)",
+                                        border: "2px solid black",
+                                    }}>
+                                    {binaryTyokuzen ? `${binaryTyokuzen}` : null}
+                                </Button>
+                            </Box>
 
-                            <Typography variant="h6"
-                                        sx={{
-                                            fontSize: "10px",
-                                            background: "linear-gradient(180deg, #e38010 0%, #e38010 10%, white 10%, white 90%)", // ✅ 閉じカッコを追加
-                                            width: "97px",
-                                            height: "180px",
-                                            borderRadius: "5%",
-                                            display: "flex",
-                                            alignItems: "center",
-                                            justifyContent: "center",
-                                            color: "black",
-                                            boxShadow: "0 2px 5px rgba(0,0,0,0.2)",
-                                            border: "2px solid black",
-                                        }}>
-                                {latestDiscard ? `直前に捨てられた牌: ${latestDiscard}` : null}
-                            </Typography>
                         </Box>
 
 
