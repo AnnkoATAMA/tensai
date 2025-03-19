@@ -37,6 +37,7 @@ const MatchingRoom = () => {
     const [ronPlayer, setRonPlayer] = useState<string | null>(null);
     const [ronPlayerHand, setRonPlayerHand] = useState<string[] | null>(null);
     const [currentPlayer, setCurrentPlayer] = useState<string | null>(null);
+    const [latestDiscard, setLatestDiscard] = useState<string | null>(null);
 
     useEffect(() => {
         if (!roomId) return;
@@ -102,6 +103,8 @@ const MatchingRoom = () => {
                     ...prev,
                     [last_action_player]: [...(prev[last_action_player] || []), last_discarded_hai],
                 }));
+
+                setLatestDiscard(data.game_state.last_discarded_hai);
             }
 
 
@@ -287,9 +290,30 @@ const MatchingRoom = () => {
                         })}
                     </Box>
                     <Box sx={{ marginTop: "auto" }}>
-                        <Typography variant="h6" sx={{ mt: 2 }}>
-                            現在のプレイヤーID: {currentPlayer ?? "未定"}
-                        </Typography>
+                        <Box>
+                            <Typography variant="h6" sx={{ mt: 2 }}>
+                                現在のプレイヤーID: {currentPlayer ?? "未定"}
+                            </Typography>
+
+                            <Typography variant="h6"
+                                        sx={{
+                                            fontSize: "10px",
+                                            background: "linear-gradient(180deg, #e38010 0%, #e38010 10%, white 10%, white 90%)", // ✅ 閉じカッコを追加
+                                            width: "97px",
+                                            height: "180px",
+                                            borderRadius: "5%",
+                                            display: "flex",
+                                            alignItems: "center",
+                                            justifyContent: "center",
+                                            color: "black",
+                                            boxShadow: "0 2px 5px rgba(0,0,0,0.2)",
+                                            border: "2px solid black",
+                                        }}>
+                                {latestDiscard ? `直前に捨てられた牌: ${latestDiscard}` : null}
+                            </Typography>
+                        </Box>
+
+
 
                         <Grid container spacing={1} justifyContent="center">
                             {binaryHand.map((binary, index) => (
